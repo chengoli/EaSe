@@ -7,22 +7,22 @@ def get_args():
     parser.add_argument("--annotation_path_tr",
                         help="Path to file that contains annotations for training data.",
                         type=str,
-                        default='v2_mscoco_train2014_annotations.json')
+                        default='/Users/oliverlau/Desktop/EASE/v2_mscoco_train2014_annotations.json')
 
     parser.add_argument("--question_path_tr",
                         help="Path to file that contains questions for training data.",
                         type=str,
-                        default='v2_OpenEnded_mscoco_train2014_questions.json')
+                        default='/Users/oliverlau/Desktop/EASE/v2_OpenEnded_mscoco_train2014_questions.json')
 
     parser.add_argument("--annotation_path_val",
                         help="Path to file that contains annotations for validation data.",
                         type=str,
-                        default='v2_mscoco_val2014_annotations.json')
+                        default='/Users/oliverlau/Desktop/EASE/v2_mscoco_val2014_annotations.json')
 
     parser.add_argument("--question_path_val",
                         help="Path to file that contains questions for validation data.",
                         type=str,
-                        default='v2_OpenEnded_mscoco_val2014_questions.json')
+                        default='/Users/oliverlau/Desktop/EASE/v2_OpenEnded_mscoco_val2014_questions.jsonn')
 
     parser.add_argument("--data_split",
                         help="Split of the dataset whose scores are to be computed. Possible options: train/val",
@@ -32,7 +32,7 @@ def get_args():
     parser.add_argument("--word2vec",
                         help="Path for word2vec model",
                         type=str,
-                        default='fastText/wiki-news-300d-1M-subword.vec')
+                        default='/Users/oliverlau/Desktop/EASE/wiki-news-300d-1M-subword.vec')
 
     parser.add_argument("--data_name",
                         help="Dataset name used in the experiment. Possible Types:  VQA/VizWiz",
