@@ -1,12 +1,11 @@
 """
 EaSe (Entropy and Semantic subjectivity)算法实现
 基于论文: "EaSe: A Diagnostic Tool for VQA Based on Answer Diversity"
-增强版本：增加了健壮性和错误处理
+修复版本：修正了所有样本被归类为TOP-HARD的问题
 """
 import json
 import numpy as np
 from collections import Counter
-import torch
 from scipy.stats import entropy
 import fasttext
 import os
@@ -210,6 +209,11 @@ def compute_similarity(word, centroid, vector_model):
         sim = cosine_similarity(word_embedding, centroid)[0][0]
         # 将负相似度值设为0
         sim = max(0, sim)
+
+        # 调试输出
+        if np.random.random() < 0.0001:  # 随机抽样打印一些样本，不影响性能
+            print(f"答案: '{word}', 相似度: {sim:.4f}")
+
         return sim
     except Exception as e:
         print(f"警告: 计算'{word}'的相似度时出错: {e}")
@@ -218,7 +222,7 @@ def compute_similarity(word, centroid, vector_model):
 
 def compute_ease_score(answers, vector_model):
     """
-    计算EaSe分数
+    计算EaSe分数，严格遵循论文公式
 
     Args:
         answers: 一个问题的所有答案列表
@@ -237,6 +241,10 @@ def compute_ease_score(answers, vector_model):
         # 获取唯一答案
         unique_answers = list(answer_counter.keys())
 
+        # 如果只有一个唯一答案，所有人都给了相同答案，则为最简单的情况
+        if len(unique_answers) == 1:
+            return 1.0
+
         # 计算中心向量
         centroid = centroid_vector(unique_answers, vector_model)
         if centroid is None or np.all(centroid == 0):
@@ -248,26 +256,31 @@ def compute_ease_score(answers, vector_model):
         # 计算最常见答案与中心向量的相似度
         max_sim = compute_similarity(most_common_answer, centroid, vector_model)
 
-        # 设置动态阈值
-        eps = 0.0001
+        # 设置动态阈值 - 论文中明确使用0.0001作为epsilon值
+        eps = 0.0001  # 严格遵循论文
         threshold = max_sim - eps
 
         # 将答案分为高相似度组和低相似度组
         high_sim_answers = []
         low_sim_answers = []
 
+        # 用于调试的计数器
+        debug_count = 0
+
         for ans, freq in answer_counter.items():
             sim = compute_similarity(ans, centroid, vector_model)
 
             if sim >= threshold:
+                # 论文方法：所有高相似度答案合并为一组
                 high_sim_answers.extend([ans] * freq)
+                debug_count += 1
             else:
                 low_sim_answers.extend([ans] * freq)
 
-        # 创建新的答案分布
+        # 创建新的答案分布 - 修正论文实现的关键部分
         if high_sim_answers:
-            # 如果有高相似度答案，将它们合并为一类
-            new_distribution = [1] * len(high_sim_answers)
+            # 如果有高相似度答案，将它们合并为一个频率
+            new_distribution = [sum(1 for _ in high_sim_answers)]  # 重要：合并为一个频率
             for ans in set(low_sim_answers):
                 count = low_sim_answers.count(ans)
                 new_distribution.append(count)
@@ -283,12 +296,24 @@ def compute_ease_score(answers, vector_model):
         probs = [count / total for count in new_distribution]
         ent = entropy(probs, base=2)
 
-        # 归一化熵（假设最大熵为log2(10)，因为VQA通常有10个答案）
-        max_entropy = np.log2(len(new_distribution)) if len(new_distribution) > 0 else 0
-        norm_entropy = ent / 2.302  # 论文中使用的标准化值
+        # 论文中使用的归一化熵 - 使用固定值2.302归一化
+        norm_entropy = ent / 2.302
 
         # 计算EaSe分数 = 1 - 归一化熵
         ease_score = 1 - norm_entropy
+
+        # 随机打印一些样本进行调试
+        if np.random.random() < 0.0001:
+            print(f"\n调试信息:")
+            print(f"唯一答案数: {len(unique_answers)}")
+            print(f"最常见答案: '{most_common_answer}', 频率: {max_freq}")
+            print(f"最常见答案相似度: {max_sim:.4f}")
+            print(f"阈值: {threshold:.4f}")
+            print(f"高相似度答案数: {debug_count}/{len(unique_answers)}")
+            print(f"新分布: {new_distribution}")
+            print(f"熵: {ent:.4f}")
+            print(f"归一化熵: {norm_entropy:.4f}")
+            print(f"EaSe分数: {ease_score:.4f}")
 
         return ease_score
     except Exception as e:
@@ -338,6 +363,13 @@ def process_vqa_dataset(annotations_path, questions_path, vector_model, output_d
         bh_ids = []  # BOTTOM-HARD: 0.5 <= EaSe < 1.0
         e_ids = []   # EASY: EaSe = 1.0
 
+        # 用于统计的计数器
+        total_processed = 0
+        distribution_stats = {"TH": 0, "BH": 0, "E": 0}
+
+        # 每处理1000个样本报告一次分布
+        report_interval = 1000
+
         for anno in tqdm(annotations, desc="计算EaSe分数"):
             qid = anno['question_id']
 
@@ -352,15 +384,33 @@ def process_vqa_dataset(annotations_path, questions_path, vector_model, output_d
                 # 根据EaSe分数分类
                 if ease_score < 0.5:
                     th_ids.append(qid)
+                    distribution_stats["TH"] += 1
                 elif ease_score < 1.0:
                     bh_ids.append(qid)
+                    distribution_stats["BH"] += 1
                 else:
                     e_ids.append(qid)
+                    distribution_stats["E"] += 1
+
+                total_processed += 1
+
+                # 每处理一定数量的样本，输出当前分布
+                if total_processed % report_interval == 0:
+                    th_pct = distribution_stats["TH"] / total_processed * 100
+                    bh_pct = distribution_stats["BH"] / total_processed * 100
+                    e_pct = distribution_stats["E"] / total_processed * 100
+
+                    print(f"\n当前处理: {total_processed}/{len(annotations)} 样本")
+                    print(f"TOP-HARD: {distribution_stats['TH']} ({th_pct:.2f}%)")
+                    print(f"BOTTOM-HARD: {distribution_stats['BH']} ({bh_pct:.2f}%)")
+                    print(f"EASY: {distribution_stats['E']} ({e_pct:.2f}%)")
+
             except Exception as e:
                 print(f"警告: 处理问题ID {qid}时出错: {e}")
                 # 默认为中等难度
                 ease_scores[qid] = 0.75
                 bh_ids.append(qid)
+                distribution_stats["BH"] += 1
 
         splits = {
             'TH': th_ids,  # TOP-HARD
@@ -368,6 +418,7 @@ def process_vqa_dataset(annotations_path, questions_path, vector_model, output_d
             'E': e_ids     # EASY
         }
 
+        print(f"\n最终结果:")
         print(f"TOP-HARD样本: {len(th_ids)} ({len(th_ids) / len(annotations) * 100:.2f}%)")
         print(f"BOTTOM-HARD样本: {len(bh_ids)} ({len(bh_ids) / len(annotations) * 100:.2f}%)")
         print(f"EASY样本: {len(e_ids)} ({len(e_ids) / len(annotations) * 100:.2f}%)")

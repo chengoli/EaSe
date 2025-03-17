@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument("--train_annotations", default="/Users/oliverlau/Desktop/EASE/v2_mscoco_train2014_annotations.json", type=str)
     parser.add_argument("--val_questions", default="/Users/oliverlau/Desktop/EASE/v2_OpenEnded_mscoco_val2014_questions.json", type=str)
     parser.add_argument("--val_annotations", default="/Users/oliverlau/Desktop/EASE/v2_mscoco_val2014_annotations.json", type=str)
-    #parser.add_argument("--image_features_path", default="", type=str)
+    parser.add_argument("--image_features_path", default="/Users/oliverlau/Desktop/EASE/train2014_obj36.tsv", type=str)
     
     # EaSe分割文件
     parser.add_argument("--th_ids_path", default="./EaSe_results/train/th_ids.json", type=str)
