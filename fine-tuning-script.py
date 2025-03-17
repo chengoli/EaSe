@@ -32,11 +32,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description="使用EaSe困难度指标微调LXMERT模型")
     
     # 数据路径
-    parser.add_argument("--train_questions", default="/path/to/v2_OpenEnded_mscoco_train2014_questions.json", type=str)
-    parser.add_argument("--train_annotations", default="/path/to/v2_mscoco_train2014_annotations.json", type=str)
-    parser.add_argument("--val_questions", default="/path/to/v2_OpenEnded_mscoco_val2014_questions.json", type=str)
-    parser.add_argument("--val_annotations", default="/path/to/v2_mscoco_val2014_annotations.json", type=str)
-    parser.add_argument("--image_features_path", default="/path/to/image_features", type=str)
+    parser.add_argument("--train_questions", default="/Users/oliverlau/Desktop/EASE/v2_OpenEnded_mscoco_train2014_questions.json", type=str)
+    parser.add_argument("--train_annotations", default="/Users/oliverlau/Desktop/EASE/v2_mscoco_train2014_annotations.json", type=str)
+    parser.add_argument("--val_questions", default="/Users/oliverlau/Desktop/EASE/v2_OpenEnded_mscoco_val2014_questions.json", type=str)
+    parser.add_argument("--val_annotations", default="/Users/oliverlau/Desktop/EASE/v2_mscoco_val2014_annotations.json", type=str)
+    #parser.add_argument("--image_features_path", default="", type=str)
     
     # EaSe分割文件
     parser.add_argument("--th_ids_path", default="./EaSe_results/train/th_ids.json", type=str)
